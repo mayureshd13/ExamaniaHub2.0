@@ -1,15 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import '../App.css';
 import { FaHome } from "react-icons/fa";
 import { FaBookOpen } from "react-icons/fa";
 import { IoGameController } from "react-icons/io5";
+import { AuthContext } from '../context/AuthContext';
+import { AiOutlineLogout } from "react-icons/ai";
+import { AiOutlineLogin } from "react-icons/ai";
+
 
 function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const { logout, user } = useContext(AuthContext);
 
   const handleGameZoneClick = () => {
     if (location.pathname === "/") {
@@ -44,13 +49,13 @@ function Navbar() {
             <Link to="/" className='flex items-center'>
               <span className='flex justify-center items-center text-2xl font-bold font-[Caveat]'>
                 <img src="https://res.cloudinary.com/djhweskrq/image/upload/v1747983145/ExamaniaHub_logo_.0_1_a0j9ql.png" width={55} alt="logo" />
-               <span className='font-bold font-serif flex'>Examania <h3 className='text-amber-300'>Hub</h3> </span>
+                <span className='font-bold font-serif flex'>Examania <h3 className='text-amber-300'>Hub</h3> </span>
               </span>
             </Link>
           </motion.div>
 
           {/* Desktop Menu */}
-          <ul className='hidden md:flex gap-6 items-center'>
+          <ul className='hidden md:flex gap-6 items-center justify-center'>
             {navItems.map((item, index) => (
               <motion.li
                 key={index}
@@ -85,6 +90,25 @@ function Navbar() {
                 )}
               </motion.li>
             ))}
+            {/* Show Login if no user, else Logout */}
+            {user ? (
+              <button
+                onClick={() => {
+                  logout();
+                  navigate('/');
+                }}
+                className="px-3 py-2 hover:text-red-300 transition-colors duration-200 font-semibold flex items-center gap-2"
+              ><AiOutlineLogout/>
+                Logout
+              </button>
+            ) : (
+              <Link
+                to="/login"
+                className="px-3 py-2 hover:text-red-300 transition-colors duration-200 font-semibold flex items-center gap-2"
+              ><AiOutlineLogin/>
+                Login
+              </Link>
+            )}
           </ul>
 
           {/* Mobile Menu Button */}
@@ -127,6 +151,7 @@ function Navbar() {
                       onClick={(e) => {
                         e.preventDefault();
                         handleGameZoneClick();
+                        setIsMenuOpen(false);
                       }}
                       className='block px-4 py-3 hover:bg-blue-600 rounded transition-colors'
                     >
@@ -143,6 +168,27 @@ function Navbar() {
                   )}
                 </motion.li>
               ))}
+              {/* Login / Logout on mobile */}
+              {user ? (
+                <button
+                  onClick={() => {
+                    logout();
+                    navigate('/');
+                    setIsMenuOpen(false);
+                  }}
+                  className="block w-full text-left px-4 py-3 hover:bg-blue-600 rounded font-semibold"
+                >
+                  Logout
+                </button>
+              ) : (
+                <Link
+                  to="/login"
+                  className="block px-4 py-3 hover:bg-blue-600 rounded font-semibold"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Login
+                </Link>
+              )}
             </ul>
           </motion.div>
         )}
