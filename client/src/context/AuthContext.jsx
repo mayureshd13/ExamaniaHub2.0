@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect } from 'react';
 import { isTokenExpired } from '../utils/token';
-import { login as apiLogin, signup as apiSignup } from '../api/auth';
+import { login as apiLogin, signup as apiSignup } from '../API/auth';
 
 export const AuthContext = createContext();
 
