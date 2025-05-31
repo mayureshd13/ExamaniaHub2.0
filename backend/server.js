@@ -9,14 +9,14 @@ const jwt = require('jsonwebtoken');
 
 // Models
 const models = require('./models/Subject');
-const User = require('./models/User'); // ⬅️ Add this file (shown below)
+const User = require('./models/User'); // ⬅️ Add this file 
 
 // Routes
 const questionRoutes = require('./routes/questionRoutes');
 const wordBankRoutes = require('./routes/wordBankRoutes');
 
 // Middleware
-const authMiddleware = require('./middleware/auth'); // ⬅️ Add this file (shown below)
+const authMiddleware = require('./middleware/auth'); // ⬅️ Add this file
 
 dotenv.config();
 connectDB();
@@ -61,19 +61,49 @@ app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
   try {
     const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ success: false, message: 'User not found' });
+    
+    if (!user) {
+      return res.status(404).json({ 
+        success: false,
+        errorType: 'USER_NOT_FOUND',  // Specific error type
+        message: 'No account found with this email' 
+      });
+    }
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ success: false, message: 'Incorrect password' });
+    if (!isMatch) {
+      return res.status(401).json({ 
+        success: false,
+        errorType: 'INVALID_PASSWORD',
+        message: 'Incorrect password' 
+      });
+    }
 
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '2h' });
+    const token = jwt.sign(
+      { userId: user._id, email: user.email, name: user.name },
+      process.env.JWT_SECRET,
+      { expiresIn: '2h' }
+    );
 
     user.activeToken = token;
     await user.save();
 
-    res.json({ success: true, token });
+    res.json({ 
+      success: true, 
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email
+      }
+    });
   } catch (err) {
-    res.status(500).json({ success: false, message: 'Login failed', error: err.message });
+    res.status(500).json({ 
+      success: false,
+      errorType: 'SERVER_ERROR',
+      message: 'Login failed',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 });
 

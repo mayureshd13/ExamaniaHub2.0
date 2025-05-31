@@ -60,13 +60,24 @@ export const login = async (data, signal) => {
       body: JSON.stringify(data),
       signal,
     });
-    return await handleResponse(res);
-  } catch (err) {
-    handleNetworkError(err);
-  }
-};
 
-/**
+    const response = await res.json();
+    
+    if (!res.ok) {
+      const error = new Error(response.message || 'Login failed');
+      error.errorType = response.errorType || 'UNKNOWN_ERROR';
+      throw error;
+    }
+
+    return response;
+  } catch (err) {
+    // Re-throw with proper error classification
+    if (err.name === 'AbortError') {
+      throw new Error('Request timed out');
+    }
+    throw err; // This now includes errorType
+  }
+};/**
  * Verify authentication token
  */
 export const verifyToken = async (token, signal) => {
