@@ -60,7 +60,7 @@ res.status(500).json({ success: false, msg: 'Signup failed', error: err.message 
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
   try {
-    const user = await User.findOne({ email:email});
+    const user = await User.findOne({ email});
     
     if (!user) {
       return res.status(404).json({ 
