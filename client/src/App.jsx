@@ -27,16 +27,20 @@ function App() {
         <Route path='/general-knowledge' element={<Gk />} />
         <Route path='/logical-reasoning' element={<Logical />} />
 
-        {/* Protected route */}
         <Route
           path='/guessguru'
           element={
+            <ProtectedRoute>
               <GuessGuruPage />
+            </ProtectedRoute>
           }
         />
 
         <Route path='/tests' element={
+          <ProtectedRoute>
             <TestPage />
+          </ProtectedRoute>
+
         } />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
