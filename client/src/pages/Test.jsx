@@ -3,9 +3,17 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import html2canvas from 'html2canvas';
 
 const TestPage = () => {
-      const navigate = useNavigate();
+  const navigate = useNavigate();
+
+  // User details state
+  const [userDetails, setUserDetails] = useState({
+    name: '',
+    email: '',
+    phone: ''
+  });
 
   // Test configuration states
   const [testConfig, setTestConfig] = useState({
@@ -23,6 +31,7 @@ const TestPage = () => {
   const [timeLeft, setTimeLeft] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [showUserForm, setShowUserForm] = useState(true); // New state for user form visibility
 
   // Available subjects
   const allSubjects = [
@@ -45,6 +54,15 @@ const TestPage = () => {
     }));
   }, [testConfig.marks]);
 
+  // Handle user details change
+  const handleUserDetailsChange = (e) => {
+    const { name, value } = e.target;
+    setUserDetails(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
   // Handle subject selection
   const handleSubjectChange = (subjectId) => {
     setTestConfig(prev => {
@@ -63,59 +81,65 @@ const TestPage = () => {
   };
 
   // Start the test
-const startTest = async () => {
-  if (testConfig.mode === 'specific' && testConfig.subjects.length === 0) {
-    setError('Please select at least one subject');
-    return;
-  }
-
-  if (testConfig.mode === 'combined' && testConfig.subjects.length < 2) {
-    setError('Please select at least two subjects for combined test');
-    return;
-  }
-
-  setIsLoading(true);
-  setError(null);
-
-  try {
-    let selectedQuestions = [];
-
-    if (testConfig.mode === 'specific') {
-      const promises = testConfig.subjects.map(subject =>
-        fetch(`${import.meta.env.VITE_QUESTIONS}${subject}`)
-      );
-      const responses = await Promise.all(promises);
-      const data = await Promise.all(responses.map(res => res.json()));
-
-      const allQuestions = data.flatMap(d => d.questions);
-      const shuffled = allQuestions.sort(() => 0.5 - Math.random());
-      selectedQuestions = shuffled.slice(0, testConfig.marks);
-
-    } else {
-      const response = await fetch(`${import.meta.env.VITE_COMBINED}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          subjects: testConfig.subjects,
-          count: testConfig.marks
-        }),
-      });
-
-      const data = await response.json();
-      const shuffled = data.questions.sort(() => 0.5 - Math.random());
-      selectedQuestions = shuffled.slice(0, testConfig.marks);
+  const startTest = async () => {
+    if (testConfig.mode === 'specific' && testConfig.subjects.length === 0) {
+      setError('Please select at least one subject');
+      return;
     }
 
-    setQuestions(selectedQuestions);
-    setTimeLeft(testConfig.duration * 45);
-    setTestStarted(true);
-  } catch (err) {
-    setError('Failed to load questions. Please try again.');
-    console.error(err);
-  } finally {
-    setIsLoading(false);
-  }
-};
+    if (testConfig.mode === 'combined' && testConfig.subjects.length < 2) {
+      setError('Please select at least two subjects for combined test');
+      return;
+    }
+
+    if (!userDetails.name) {
+      setError('Please enter your name');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      let selectedQuestions = [];
+
+      if (testConfig.mode === 'specific') {
+        const promises = testConfig.subjects.map(subject =>
+          fetch(`${import.meta.env.VITE_QUESTIONS}${subject}`)
+        );
+        const responses = await Promise.all(promises);
+        const data = await Promise.all(responses.map(res => res.json()));
+
+        const allQuestions = data.flatMap(d => d.questions);
+        const shuffled = allQuestions.sort(() => 0.5 - Math.random());
+        selectedQuestions = shuffled.slice(0, testConfig.marks);
+
+      } else {
+        const response = await fetch(`${import.meta.env.VITE_COMBINED}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            subjects: testConfig.subjects,
+            count: testConfig.marks
+          }),
+        });
+
+        const data = await response.json();
+        const shuffled = data.questions.sort(() => 0.5 - Math.random());
+        selectedQuestions = shuffled.slice(0, testConfig.marks);
+      }
+
+      setQuestions(selectedQuestions);
+      setTimeLeft(testConfig.duration * 45);
+      setTestStarted(true);
+      setShowUserForm(false); // Hide user form after starting test
+    } catch (err) {
+      setError('Failed to load questions. Please try again.');
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Timer effect
   useEffect(() => {
@@ -196,6 +220,49 @@ const startTest = async () => {
     setQuestions([]);
     setSelectedAnswers({});
     setTimeLeft(0);
+    setShowUserForm(true); // Show user form again
+  };
+
+  // Share report card
+  const shareReportCard = async () => {
+    try {
+      // Create a canvas from the report card div
+      const reportCardElement = document.getElementById('report-card');
+      const canvas = await html2canvas(reportCardElement, {
+        scale: 2,
+        logging: false,
+        useCORS: true
+      });
+      
+      // Convert canvas to image
+      const image = canvas.toDataURL('image/png');
+      
+      // Create a temporary link to download the image
+      const link = document.createElement('a');
+      link.download = `${userDetails.name}-test-results.png`;
+      link.href = image;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Share on WhatsApp if available
+      if (navigator.share) {
+        await navigator.share({
+          title: 'My Test Results',
+          text: `Check out my test results! I scored ${results.score}% on the Abhyaas Zone Test.`,
+          files: [new File([await (await fetch(image)).blob()], 'test-results.png', { type: 'image/png' })]
+        });
+      } else if (navigator.userAgent.match(/WhatsApp/i)) {
+        // Fallback for WhatsApp web
+        window.open(`whatsapp://send?text=Check out my test results! I scored ${results.score}% on the Abhyaas Zone Test. ${image}`);
+      } else {
+        // Fallback for other browsers
+        alert('Image downloaded. You can now share it manually.');
+      }
+    } catch (err) {
+      console.error('Error sharing:', err);
+      alert('Could not share directly. Image has been downloaded - you can share it manually.');
+    }
   };
 
   return (
@@ -211,8 +278,71 @@ const startTest = async () => {
           </p>
         </div>
 
+        {/* User Details Form */}
+        {showUserForm && !testStarted && !testSubmitted && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-6 mt-8"
+          >
+            <h2 className="text-2xl font-semibold mb-6">Enter Your Details</h2>
+            
+            <div className="space-y-4 mb-6">
+              <div>
+                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                  Full Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="name"
+                  name="name"
+                  value={userDetails.name}
+                  onChange={handleUserDetailsChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                  Email (Optional)
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  value={userDetails.email}
+                  onChange={handleUserDetailsChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+                  Phone (Optional)
+                </label>
+                <input
+                  type="tel"
+                  id="phone"
+                  name="phone"
+                  value={userDetails.phone}
+                  onChange={handleUserDetailsChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+            </div>
+            
+            <button
+              onClick={() => setShowUserForm(false)}
+              className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              Continue to Test Configuration
+            </button>
+          </motion.div>
+        )}
+
         {/* Test Configuration */}
-        {!testStarted && !testSubmitted && (
+        {!showUserForm && !testStarted && !testSubmitted && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -359,106 +489,143 @@ const startTest = async () => {
         
         {/* Test Results */}
         {testSubmitted && results && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-6 mt-8"
-          >
-            <h2 className="text-2xl font-semibold mb-6">Test Results</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              {/* Score Card */}
-              <div className="bg-blue-50 p-6 rounded-lg border border-blue-200">
-                <h3 className="text-lg font-medium text-blue-800 mb-2">Your Score</h3>
-                <div className="flex items-end">
-                  <span className="text-4xl font-bold text-blue-600">{results.score}%</span>
-                  <span className="ml-2 text-gray-600">({results.correct}/{results.total})</span>
+          <div className="max-w-4xl mx-auto">
+            {/* Shareable Report Card */}
+            <div id="report-card" className="bg-white rounded-lg shadow-md p-6 mt-8 mb-6">
+              <div className="text-center mb-6">
+                <h2 className="text-3xl font-bold text-blue-600 mb-2">Abhyaas Zone</h2>
+                <h3 className="text-2xl font-semibold">Test Completion Certificate</h3>
+              </div>
+              
+              <div className="flex justify-between items-center mb-8">
+                <div>
+                  <p className="text-lg font-medium">Candidate:</p>
+                  <p className="text-2xl font-bold text-blue-700">{userDetails.name}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-gray-600">Test Date:</p>
+                  <p className="font-medium">{new Date().toLocaleDateString()}</p>
                 </div>
               </div>
               
-              {/* Correct Answers */}
-              <div className="bg-green-50 p-6 rounded-lg border border-green-200">
-                <h3 className="text-lg font-medium text-green-800 mb-2">Correct</h3>
-                <span className="text-3xl font-bold text-green-600">{results.correct}</span>
+              <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-lg mb-6">
+                <div className="text-center">
+                  <p className="text-sm text-gray-600">Your Score</p>
+                  <p className="text-5xl font-bold text-blue-600 my-3">{results.score}%</p>
+                  <p className="text-lg">
+                    {results.correct} correct out of {results.total} questions
+                  </p>
+                </div>
               </div>
               
-              {/* Incorrect Answers */}
-              <div className="bg-red-50 p-6 rounded-lg border border-red-200">
-                <h3 className="text-lg font-medium text-red-800 mb-2">Incorrect</h3>
-                <span className="text-3xl font-bold text-red-600">{results.incorrect}</span>
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="bg-green-50 p-4 rounded-lg text-center">
+                  <p className="text-sm text-green-600">Correct</p>
+                  <p className="text-2xl font-bold text-green-700">{results.correct}</p>
+                </div>
+                <div className="bg-red-50 p-4 rounded-lg text-center">
+                  <p className="text-sm text-red-600">Incorrect</p>
+                  <p className="text-2xl font-bold text-red-700">{results.incorrect}</p>
+                </div>
+                <div className="bg-yellow-50 p-4 rounded-lg text-center">
+                  <p className="text-sm text-yellow-600">Unanswered</p>
+                  <p className="text-2xl font-bold text-yellow-700">{results.unanswered}</p>
+                </div>
+              </div>
+              
+              <div className="text-center mt-4">
+                <p className="text-sm text-gray-500">Certificate ID: {Math.random().toString(36).substring(2, 10).toUpperCase()}</p>
               </div>
             </div>
             
             {/* Detailed Results */}
-            <div className="mb-6">
-              <h3 className="text-xl font-medium mb-4">Question-wise Results</h3>
-              <div className="space-y-4">
-                {questions.map((q, index) => {
-                  const userAnswer = selectedAnswers[q._id];
-                  const isCorrect = userAnswer === q.answer;
-                  
-                  return (
-                    <div key={q._id} className="border-b pb-4">
-                      <div className="flex justify-between items-start mb-2">
-                        <h4 className="font-medium">
-                          Q{index + 1}. {q.question}
-                        </h4>
-                        <span className={`text-xs px-2 py-1 rounded-full ${isCorrect ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                          {isCorrect ? 'Correct' : 'Incorrect'}
-                        </span>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">
-                        {['A', 'B', 'C', 'D'].map(opt => {
-                          let bgClass = 'bg-gray-50';
-                          if (opt === q.answer) {
-                            bgClass = 'bg-green-100 border-green-300';
-                          } else if (opt === userAnswer && !isCorrect) {
-                            bgClass = 'bg-red-100 border-red-300';
-                          }
-                          
-                          return (
-                            <div 
-                              key={opt}
-                              className={`p-3 rounded-lg border ${bgClass}`}
-                            >
-                              <span className="font-bold mr-2">{opt}.</span>
-                              {q.options[opt]}
-                            </div>
-                          );
-                        })}
-                      </div>
-                      
-                      {!isCorrect && (
-                        <div className="mt-3 p-3 bg-blue-50 rounded-lg">
-                          <p className="font-medium text-blue-800">Correct Answer: {q.answer}</p>
-                          <p className="text-sm text-gray-700 mt-1">
-                            <span className="font-medium">Explanation:</span> {q.explanation || 'No explanation provided.'}
-                          </p>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white rounded-lg shadow-md p-6 mb-8"
+            >
+              <h2 className="text-2xl font-semibold mb-6">Detailed Results</h2>
+              
+              <div className="mb-6">
+                <h3 className="text-xl font-medium mb-4">Question-wise Results</h3>
+                <div className="space-y-4">
+                  {questions.map((q, index) => {
+                    const userAnswer = selectedAnswers[q._id];
+                    const isCorrect = userAnswer === q.answer;
+                    
+                    return (
+                      <div key={q._id} className="border-b pb-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <h4 className="font-medium">
+                            Q{index + 1}. {q.question}
+                          </h4>
+                          <span className={`text-xs px-2 py-1 rounded-full ${isCorrect ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                            {isCorrect ? 'Correct' : 'Incorrect'}
+                          </span>
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">
+                          {['A', 'B', 'C', 'D'].map(opt => {
+                            let bgClass = 'bg-gray-50';
+                            if (opt === q.answer) {
+                              bgClass = 'bg-green-100 border-green-300';
+                            } else if (opt === userAnswer && !isCorrect) {
+                              bgClass = 'bg-red-100 border-red-300';
+                            }
+                            
+                            return (
+                              <div 
+                                key={opt}
+                                className={`p-3 rounded-lg border ${bgClass}`}
+                              >
+                                <span className="font-bold mr-2">{opt}.</span>
+                                {q.options[opt]}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        
+                        {!isCorrect && (
+                          <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                            <p className="font-medium text-blue-800">Correct Answer: {q.answer}</p>
+                            <p className="text-sm text-gray-700 mt-1">
+                              <span className="font-medium">Explanation:</span> {q.explanation || 'No explanation provided.'}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            </motion.div>
             
-            <div className="flex justify-center gap-2">
+            <div className="flex justify-center gap-4 flex-wrap">
+              <button
+                onClick={shareReportCard}
+                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
+                </svg>
+                Share Results
+              </button>
+              
               <button
                 onClick={resetTest}
                 className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 Take Another Test
               </button>
+              
               <button
                 onClick={() => navigate('/')}
-                className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
               >
                 Exit Test
               </button>
-
             </div>
-          </motion.div>
+          </div>
         )}
       </main>
       <Footer />
