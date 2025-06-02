@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import html2canvas from 'html2canvas';
 
@@ -17,10 +17,10 @@ const TestPage = () => {
 
   // Test configuration states
   const [testConfig, setTestConfig] = useState({
-    mode: 'specific', // 'specific' or 'combined'
+    mode: 'specific',
     subjects: [],
     marks: 20,
-    duration: 30 // in minutes
+    duration: 30
   });
   
   // Test states
@@ -31,7 +31,7 @@ const TestPage = () => {
   const [timeLeft, setTimeLeft] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [showUserForm, setShowUserForm] = useState(true); // New state for user form visibility
+  const [showUserForm, setShowUserForm] = useState(true);
 
   // Available subjects
   const allSubjects = [
@@ -46,11 +46,10 @@ const TestPage = () => {
   // Marks options
   const marksOptions = [20, 30, 50, 100];
   
-  // Calculate duration based on marks (1 minute per question)
   useEffect(() => {
     setTestConfig(prev => ({
       ...prev,
-      duration: prev.marks // 1 minute per question
+      duration: prev.marks
     }));
   }, [testConfig.marks]);
 
@@ -132,7 +131,7 @@ const TestPage = () => {
       setQuestions(selectedQuestions);
       setTimeLeft(testConfig.duration * 45);
       setTestStarted(true);
-      setShowUserForm(false); // Hide user form after starting test
+      setShowUserForm(false);
     } catch (err) {
       setError('Failed to load questions. Please try again.');
       console.error(err);
@@ -149,7 +148,7 @@ const TestPage = () => {
       setTimeLeft(prev => {
         if (prev <= 1) {
           clearInterval(timer);
-          submitTest(); // Auto-submit when time runs out
+          submitTest();
           return 0;
         }
         return prev - 1;
@@ -220,7 +219,7 @@ const TestPage = () => {
     setQuestions([]);
     setSelectedAnswers({});
     setTimeLeft(0);
-    setShowUserForm(true); // Show user form again
+    setShowUserForm(true);
   };
 
   // Share report card
@@ -228,11 +227,21 @@ const TestPage = () => {
     try {
       // Create a canvas from the report card div
       const reportCardElement = document.getElementById('report-card');
+      
+      // Add special class during image generation
+      reportCardElement.classList.add('capturing');
+      
       const canvas = await html2canvas(reportCardElement, {
         scale: 2,
         logging: false,
-        useCORS: true
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        allowTaint: true,
+        letterRendering: true
       });
+      
+      // Remove the special class
+      reportCardElement.classList.remove('capturing');
       
       // Convert canvas to image
       const image = canvas.toDataURL('image/png');
@@ -245,23 +254,55 @@ const TestPage = () => {
       link.click();
       document.body.removeChild(link);
       
-      // Share on WhatsApp if available
+      // Try to share using Web Share API
       if (navigator.share) {
+        const blob = await (await fetch(image)).blob();
+        const file = new File([blob], 'test-results.png', { type: 'image/png' });
+        
         await navigator.share({
           title: 'My Test Results',
-          text: `Check out my test results! I scored ${results.score}% on the Abhyaas Zone Test.`,
-          files: [new File([await (await fetch(image)).blob()], 'test-results.png', { type: 'image/png' })]
+          text: `Check out my test results! I scored ${results.score}% on the ExamaniaHub Test.`,
+          files: [file]
         });
       } else if (navigator.userAgent.match(/WhatsApp/i)) {
-        // Fallback for WhatsApp web
-        window.open(`whatsapp://send?text=Check out my test results! I scored ${results.score}% on the Abhyaas Zone Test. ${image}`);
+        window.open(`whatsapp://send?text=Check out my test results! I scored ${results.score}% on the ExamaniaHub Test.`);
       } else {
-        // Fallback for other browsers
-        alert('Image downloaded. You can now share it manually.');
+        alert('Results image downloaded. You can now share it manually.');
       }
     } catch (err) {
       console.error('Error sharing:', err);
-      alert('Could not share directly. Image has been downloaded - you can share it manually.');
+      alert('Image downloaded. You can now share it manually.');
+    }
+  };
+
+  // Improved share functions for specific platforms
+  const shareToWhatsApp = async () => {
+    try {
+      const canvas = await html2canvas(document.getElementById('report-card'), {
+        scale: 2,
+        backgroundColor: '#ffffff'
+      });
+      const image = canvas.toDataURL('image/png');
+      window.open(`https://wa.me/?text=${encodeURIComponent(`Check my test results! I scored ${results.score}%`)}&url=${encodeURIComponent(image)}`);
+    } catch (error) {
+      shareReportCard();
+    }
+  };
+
+  const copyToClipboard = async () => {
+    try {
+      const canvas = await html2canvas(document.getElementById('report-card'), {
+        scale: 2,
+        backgroundColor: '#ffffff'
+      });
+      canvas.toBlob(async (blob) => {
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': blob })
+        ]);
+        alert('Image copied to clipboard!');
+      });
+    } catch (error) {
+      alert('Could not copy image. Please try downloading instead.');
     }
   };
 
@@ -271,7 +312,7 @@ const TestPage = () => {
       <main className="min-h-screen bg-gray-50 pb-10">
         {/* Header */}
         <div className="w-full bg-gradient-to-r from-blue-600 to-purple-600 p-8 text-center">
-          <h1 className="text-4xl font-bold text-white mb-2">Abhyaas Zone Test</h1>
+          <h1 className="text-4xl font-bold text-white mb-2">ExamaniaHub Test</h1>
           <p className="text-xl text-white/90">
             {testStarted ? 'Test in Progress' : 
              testSubmitted ? 'Test Results' : 'Configure Your Test'}
@@ -491,50 +532,84 @@ const TestPage = () => {
         {testSubmitted && results && (
           <div className="max-w-4xl mx-auto">
             {/* Shareable Report Card */}
-            <div id="report-card" className="bg-white rounded-lg shadow-md p-6 mt-8 mb-6">
-              <div className="text-center mb-6">
-                <h2 className="text-3xl font-bold text-blue-600 mb-2">Abhyaas Zone</h2>
-                <h3 className="text-2xl font-semibold">Test Completion Certificate</h3>
+            <div id="report-card" className="bg-white rounded-lg shadow-lg overflow-hidden border-2 border-blue-100">
+              {/* Certificate Header */}
+              <div className="bg-gradient-to-r from-blue-600 to-purple-600 py-6 px-8 text-center">
+                <h2 className="text-3xl font-bold text-white mb-1">ExamaniaHub</h2>
+                <h3 className="text-xl text-white/90 font-medium">Test Completion Certificate</h3>
               </div>
               
-              <div className="flex justify-between items-center mb-8">
-                <div>
-                  <p className="text-lg font-medium">Candidate:</p>
-                  <p className="text-2xl font-bold text-blue-700">{userDetails.name}</p>
+              {/* Certificate Body */}
+              <div className="p-8">
+                {/* User Info */}
+                <div className="flex justify-between items-center mb-8">
+                  <div>
+                    <p className="text-lg text-gray-600 mb-1">This certificate is awarded to</p>
+                    <p className="text-3xl font-bold text-blue-700">{userDetails.name}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-gray-500">Certificate ID</p>
+                    <p className="font-mono font-bold text-blue-600">
+                      {Math.random().toString(36).substring(2, 10).toUpperCase()}
+                    </p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-600">Test Date:</p>
-                  <p className="font-medium">{new Date().toLocaleDateString()}</p>
-                </div>
-              </div>
-              
-              <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-lg mb-6">
-                <div className="text-center">
-                  <p className="text-sm text-gray-600">Your Score</p>
+                
+                {/* Score Display */}
+                <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl p-6 mb-8 text-center border border-blue-100">
+                  <div className="inline-block bg-white rounded-full p-3 shadow-md -mt-14 mb-4">
+                    <div className="bg-blue-100 rounded-full p-4">
+                      <svg className="w-12 h-12 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                  </div>
                   <p className="text-5xl font-bold text-blue-600 my-3">{results.score}%</p>
-                  <p className="text-lg">
-                    {results.correct} correct out of {results.total} questions
+                  <p className="text-lg text-gray-700">
+                    Scored {results.correct} out of {results.total} questions
+                  </p>
+                  <p className="text-sm text-gray-500 mt-2">Test Date: {new Date().toLocaleDateString()}</p>
+                </div>
+                
+                {/* Stats */}
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                  <div className="bg-green-50 p-4 rounded-lg text-center border border-green-100">
+                    <p className="text-sm text-green-600 font-medium">Correct</p>
+                    <p className="text-2xl font-bold text-green-700 mt-1">{results.correct}</p>
+                  </div>
+                  <div className="bg-red-50 p-4 rounded-lg text-center border border-red-100">
+                    <p className="text-sm text-red-600 font-medium">Incorrect</p>
+                    <p className="text-2xl font-bold text-red-700 mt-1">{results.incorrect}</p>
+                  </div>
+                  <div className="bg-yellow-50 p-4 rounded-lg text-center border border-yellow-100">
+                    <p className="text-sm text-yellow-600 font-medium">Unanswered</p>
+                    <p className="text-2xl font-bold text-yellow-700 mt-1">{results.unanswered}</p>
+                  </div>
+                </div>
+                
+                {/* Subjects */}
+                {testConfig.subjects.length > 0 && (
+                  <div className="mb-6">
+                    <p className="text-sm text-gray-500 mb-2">Test Subjects:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {testConfig.subjects.map(subjectId => {
+                        const subject = allSubjects.find(s => s.id === subjectId);
+                        return (
+                          <span key={subjectId} className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+                            {subject?.name || subjectId}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Footer */}
+                <div className="border-t pt-4 text-center">
+                  <p className="text-xs text-gray-500">
+                    This certificate verifies that {userDetails.name} has completed the test on ExamaniaHub.
                   </p>
                 </div>
-              </div>
-              
-              <div className="grid grid-cols-3 gap-4 mb-6">
-                <div className="bg-green-50 p-4 rounded-lg text-center">
-                  <p className="text-sm text-green-600">Correct</p>
-                  <p className="text-2xl font-bold text-green-700">{results.correct}</p>
-                </div>
-                <div className="bg-red-50 p-4 rounded-lg text-center">
-                  <p className="text-sm text-red-600">Incorrect</p>
-                  <p className="text-2xl font-bold text-red-700">{results.incorrect}</p>
-                </div>
-                <div className="bg-yellow-50 p-4 rounded-lg text-center">
-                  <p className="text-sm text-yellow-600">Unanswered</p>
-                  <p className="text-2xl font-bold text-yellow-700">{results.unanswered}</p>
-                </div>
-              </div>
-              
-              <div className="text-center mt-4">
-                <p className="text-sm text-gray-500">Certificate ID: {Math.random().toString(36).substring(2, 10).toUpperCase()}</p>
               </div>
             </div>
             
@@ -542,7 +617,7 @@ const TestPage = () => {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-lg shadow-md p-6 mb-8"
+              className="bg-white rounded-lg shadow-md p-6 mb-8 mt-6"
             >
               <h2 className="text-2xl font-semibold mb-6">Detailed Results</h2>
               
@@ -600,30 +675,50 @@ const TestPage = () => {
               </div>
             </motion.div>
             
-            <div className="flex justify-center gap-4 flex-wrap">
-              <button
-                onClick={shareReportCard}
-                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
-                </svg>
-                Share Results
-              </button>
-              
-              <button
-                onClick={resetTest}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                Take Another Test
-              </button>
-              
-              <button
-                onClick={() => navigate('/')}
-                className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-              >
-                Exit Test
-              </button>
+            {/* Sharing Options */}
+            <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+              <h3 className="text-xl font-semibold mb-4">Share Your Results</h3>
+              <div className="flex flex-wrap gap-3 justify-center">
+                <button
+                  onClick={shareToWhatsApp}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+                >
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                  </svg>
+                  WhatsApp
+                </button>
+
+                <button
+                  onClick={shareReportCard}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                >
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
+                  </svg>
+                  Share
+                </button>
+
+                <button
+                  onClick={copyToClipboard}
+                  className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                  </svg>
+                  Copy Image
+                </button>
+
+                <button
+                  onClick={resetTest}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Retake Test
+                </button>
+              </div>
             </div>
           </div>
         )}
