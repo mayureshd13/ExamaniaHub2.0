@@ -223,71 +223,106 @@ const TestPage = () => {
   };
 
   // Share report card
-  const shareReportCard = async () => {
-    try {
-      // Create a canvas from the report card div
-      const reportCardElement = document.getElementById('report-card');
-      
-      // Add special class during image generation
-      reportCardElement.classList.add('capturing');
-      
-      const canvas = await html2canvas(reportCardElement, {
-        scale: 2,
-        logging: false,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        allowTaint: true,
-        letterRendering: true
-      });
-      
-      // Remove the special class
-      reportCardElement.classList.remove('capturing');
-      
-      // Convert canvas to image
-      const image = canvas.toDataURL('image/png');
-      
-      // Create a temporary link to download the image
-      const link = document.createElement('a');
-      link.download = `${userDetails.name}-test-results.png`;
-      link.href = image;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      // Try to share using Web Share API
-      if (navigator.share) {
-        const blob = await (await fetch(image)).blob();
-        const file = new File([blob], 'test-results.png', { type: 'image/png' });
-        
-        await navigator.share({
-          title: 'My Test Results',
-          text: `Check out my test results! I scored ${results.score}% on the ExamaniaHub Test.`,
-          files: [file]
-        });
-      } else if (navigator.userAgent.match(/WhatsApp/i)) {
-        window.open(`whatsapp://send?text=Check out my test results! I scored ${results.score}% on the ExamaniaHub Test.`);
-      } else {
-        alert('Results image downloaded. You can now share it manually.');
+// Updated shareReportCard function with fixes
+const shareReportCard = async () => {
+  try {
+    const reportCardElement = document.getElementById('report-card');
+    
+    // Temporarily hide buttons and other interactive elements during capture
+    const elementsToHide = document.querySelectorAll('.hide-on-capture');
+    elementsToHide.forEach(el => el.style.visibility = 'hidden');
+    
+    // Add a loading state
+    const originalText = document.getElementById('share-button').innerText;
+    document.getElementById('share-button').innerText = 'Generating image...';
+    
+    const canvas = await html2canvas(reportCardElement, {
+      scale: 2,
+      logging: true, // Enable logging to debug
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      allowTaint: true,
+      letterRendering: true,
+      onclone: (clonedDoc) => {
+        // Ensure fonts are loaded in the cloned document
+        const style = clonedDoc.createElement('style');
+        style.textContent = `
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+          * { font-family: 'Inter', sans-serif !important; }
+        `;
+        clonedDoc.head.appendChild(style);
       }
-    } catch (err) {
-      console.error('Error sharing:', err);
-      alert('Image downloaded. You can now share it manually.');
-    }
-  };
+    });
 
-  // Improved share functions for specific platforms
-  const shareToWhatsApp = async () => {
-    try {
-      const canvas = await html2canvas(document.getElementById('report-card'), {
-        scale: 2,
-        backgroundColor: '#ffffff'
+    // Restore hidden elements
+    elementsToHide.forEach(el => el.style.visibility = 'visible');
+    document.getElementById('share-button').innerText = originalText;
+
+    // Convert canvas to image
+    const image = canvas.toDataURL('image/png', 1.0);
+    
+    // Create download link
+    const link = document.createElement('a');
+    link.download = `${userDetails.name}-test-results.png`;
+    link.href = image;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Try to share using Web Share API
+    if (navigator.share) {
+      const response = await fetch(image);
+      const blob = await response.blob();
+      const file = new File([blob], 'test-results.png', { type: 'image/png' });
+      
+      await navigator.share({
+        title: 'My Test Results',
+        text: `I scored ${results.score}% on the ExamaniaHub Test!`,
+        files: [file]
+      }).catch(e => {
+        console.log('Share failed:', e);
+        // Fallback to just showing the download was successful
+        alert('Image downloaded successfully!');
       });
-      const image = canvas.toDataURL('image/png');
-      window.open(`https://wa.me/?text=${encodeURIComponent(`Check my test results! I scored ${results.score}%`)}&url=${encodeURIComponent(image)}`);
-    } catch (error) {
-      shareReportCard();
+    } else {
+      alert('Image downloaded successfully! You can now share it manually.');
     }
-  };
+  } catch (err) {
+    console.error('Error sharing:', err);
+    alert('Could not generate image. Please try again.');
+  }
+};
+
+// Updated WhatsApp sharing function
+const shareToWhatsApp = async () => {
+  try {
+    const reportCardElement = document.getElementById('report-card');
+    const elementsToHide = document.querySelectorAll('.hide-on-capture');
+    elementsToHide.forEach(el => el.style.visibility = 'hidden');
+    
+    const canvas = await html2canvas(reportCardElement, {
+      scale: 2,
+      backgroundColor: '#ffffff',
+      logging: true
+    });
+
+    elementsToHide.forEach(el => el.style.visibility = 'visible');
+    
+    const image = canvas.toDataURL('image/png');
+    const text = encodeURIComponent(`I scored ${results.score}% on my test!`);
+    
+    // For mobile devices
+    if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+      window.open(`whatsapp://send?text=${text}`);
+    } else {
+      // For desktop
+      window.open(`https://web.whatsapp.com/send?text=${text}`);
+    }
+  } catch (error) {
+    console.error('WhatsApp share error:', error);
+    shareReportCard(); // Fallback to regular share
+  }
+};
 
   const copyToClipboard = async () => {
     try {
