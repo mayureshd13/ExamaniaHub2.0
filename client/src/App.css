@@ -1,5 +1,7 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
 @import "tailwindcss";
 
+/* All other CSS follows after imports */
 body {
   background: linear-gradient(-45deg, #f0f0f0, #ffffff, #e6e6e6, #ffffff);
   background-size: 400% 400%;
@@ -20,3 +22,43 @@ body {
   }
 }
 
+.hide-on-capture {
+  transition: visibility 0.2s;
+}
+
+#report-card {
+  font-family: 'Inter', sans-serif;
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+}
+/* In your CSS file */
+.html2canvas-capture {
+  /* Replace any problematic color functions */
+  background: linear-gradient(to right, #2563eb, #7c3aed) !important;
+  color: #ffffff !important;
+}
+
+.html2canvas-capture * {
+  /* Force standard color formats */
+  color: inherit !important;
+  background: inherit !important;
+  border-color: currentColor !important;
+}
+
+/* App.css */
+.html2canvas-capture {
+  /* Force standard color formats */
+  background: linear-gradient(to right, rgb(37, 99, 235), rgb(124, 58, 237)) !important;
+  color: rgb(255, 255, 255) !important;
+}
+
+.html2canvas-capture * {
+  /* Ensure all elements use standard color formats */
+  color: inherit !important;
+  background: inherit !important;
+  border-color: currentColor !important;
+}
+
+.hide-on-capture {
+  visibility: hidden;
+}
