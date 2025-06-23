@@ -12,12 +12,16 @@ import Home from './pages/Home.jsx';
 import TestPage from './pages/Test.jsx';
 import Login from './pages/Login.jsx';
 import Signup from './pages/Signup.jsx';
+import AskBhideChat from "./components/AskBhideChat.jsx";
+
 
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 
 function App() {
   return (
     <>
+      <AskBhideChat />
+
       <Routes>
         <Route path='/' element={<Home />} />
         <Route path='/aptitude' element={<Aptitude />} />
@@ -26,6 +30,7 @@ function App() {
         <Route path='/programming' element={<Programming />} />
         <Route path='/general-knowledge' element={<Gk />} />
         <Route path='/logical-reasoning' element={<Logical />} />
+
 
         <Route
           path='/guessguru'

@@ -9,14 +9,16 @@ const jwt = require('jsonwebtoken');
 
 // Models
 const models = require('./models/Subject');
-const User = require('./models/User'); // ⬅️ Add this file 
+const User = require('./models/User'); 
 
 // Routes
 const questionRoutes = require('./routes/questionRoutes');
 const wordBankRoutes = require('./routes/wordBankRoutes');
+const chatbotRoutes = require("./routes/chatbot");
+
 
 // Middleware
-const authMiddleware = require('./middleware/auth'); // ⬅️ Add this file
+const authMiddleware = require('./middleware/auth');
 
 dotenv.config();
 connectDB();
@@ -28,6 +30,8 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use("/api", chatbotRoutes);
+
 
 // Rate Limiting
 const limiter = rateLimit({
