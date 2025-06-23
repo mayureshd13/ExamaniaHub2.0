@@ -70,7 +70,7 @@ const AskBhideChat = () => {
       </button>
 
       {isOpen && (
-        <div className="absolute bottom-full right-0 mb-4 w-80 h-96 bg-white rounded-xl shadow-2xl overflow-hidden border-2 border-purple-500 flex flex-col transform transition-all duration-300">
+        <div className="absolute bottom-full right-0 mb-4 w-80 max-h-[80vh] bg-white rounded-xl shadow-2xl overflow-hidden border-2 border-purple-500 flex flex-col transform transition-all duration-300">
           {/* Header */}
           <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white py-3 px-4 text-center font-bold text-lg">
             Ask Bhide Sir
@@ -100,7 +100,7 @@ const AskBhideChat = () => {
           </div>
           
           {/* Input */}
-          <div className="border-t border-gray-200 bg-white p-3 flex">
+          <div className="border-t border-gray-200 bg-white p-3 flex flex-shrink-0">
             <input
               type="text"
               value={input}
