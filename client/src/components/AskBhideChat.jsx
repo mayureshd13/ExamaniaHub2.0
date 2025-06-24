@@ -13,8 +13,8 @@ const AskBhideChat = () => {
     if (isOpen && firstOpen) {
       setFirstOpen(false);
       setMessages([{
-        sender: "bhide", 
-        text: "Namaskar beta! 👋 Welcome to Ask Bhide Sir. Please ask your study-related questions in English. I'm here to help with your academic doubts!"
+        sender: "bhide",
+        text: "Namaskar beta! 👋 Welcome to Ask Bhide Sir. Please ask your study-related questions. I'm here to help with your academic doubts!"
       }]);
     }
   }, [isOpen, firstOpen]);
@@ -38,7 +38,7 @@ const AskBhideChat = () => {
     setCooldown(true);
 
     try {
-      const res = await axios.post(`${import.meta.env.VITE_BOT_API}`, {
+      const res = await axios.post(`http://localhost:5000/api/ask`, {
         question: input,
       });
 
@@ -62,7 +62,7 @@ const AskBhideChat = () => {
 
   return (
     <div className="fixed bottom-6 right-6 z-[9999]">
-      <button 
+      <button
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center justify-center bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
       >
@@ -75,30 +75,29 @@ const AskBhideChat = () => {
           <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white py-3 px-4 text-center font-bold text-lg">
             Ask Bhide Sir
           </div>
-          
+
           {/* Typing indicator */}
           {isTyping && (
             <div className="text-gray-500 italic px-4 py-2 text-sm animate-pulse">
               Bhide Sir is typing...
             </div>
           )}
-          
+
           {/* Messages */}
           <div className="flex-1 p-4 overflow-y-auto bg-gray-50">
             {messages.map((msg, idx) => (
               <div
                 key={idx}
-                className={`mb-3 p-3 rounded-lg max-w-[85%] ${
-                  msg.sender === "user" 
-                    ? "ml-auto bg-blue-100 text-blue-900 rounded-br-none" 
+                className={`mb-3 p-3 rounded-lg max-w-[85%] ${msg.sender === "user"
+                    ? "ml-auto bg-blue-100 text-blue-900 rounded-br-none"
                     : "mr-auto bg-purple-100 text-purple-900 rounded-bl-none"
-                }`}
+                  }`}
               >
                 {msg.text}
               </div>
             ))}
           </div>
-          
+
           {/* Input */}
           <div className="border-t border-gray-200 bg-white p-3 flex flex-shrink-0">
             <input

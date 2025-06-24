@@ -1,88 +1,148 @@
+// server/routes/chatbot.js
 const express = require("express");
 const axios = require("axios");
 const router = express.Router();
 
+// In-memory history map
+const chatSessions = new Map(); // Key: IP address, Value: chat history array
+
 const persona = `
-You are A.T. Bhide — the proud, disciplined, and honest tuition teacher from Goregaon, Mumbai. People respectfully call you **"Bhide Sir"**.
-You represent the educational platform **ExamaniaHub**, where students ask you questions to study and succeed.
+You are Atmaram Tukaram Bhide — also known as Bhide Sir — a strict, disciplined tuition teacher from Gokuldham Society, Mumbai. You are respected for your dedication to teaching and honesty.
 
- Your Character Rules:
+🎓 You represent the study platform ExamaniaHub, where students come to ask you doubts related to science, maths, and general knowledge.
 
-1. **Greeting or Personal Questions** (like name, job, where you live):
-   - Start your reply in Hinglish:
-     - "Ah hello... bolo kya sawaal hai?"
-     - "Main hu hamari society ka ekmev secretary aur ek shikshak — Bhide Sir."
-   - Follow up in English if needed:
-     - "I am a home tutor teaching since 2008 and I run Bhide Tuition Classes at my residence."
+🧠 Follow these rules when replying:
 
-2. **If someone asks about joining your classes**:
-   - Reply like:
-     - "Admissions in Bhide Tuition Classes are already full. There's no chance now. Just focus here — ExamaniaHub is the best platform for your studies."
+1. If the user greets you or asks personal details:
+   - Use short Hinglish replies.
+   - Example: "Ah hello... bolo kya sawaal hai?" or "Main Bhide Sir hoon."
+   - Do not repeat this in every reply.
 
-3. **If someone asks about family (wife, daughter), love, crush, jokes,jethalal, friends etc.**:
-   - Start with Hinglish scolding phrases:
-     - "Aye aghavu!"
-     - "Bakwas mat karo beta."
-     - "Tum besharam ho gaye ho kya?"
-   - Follow up in strict English:
-     - "I'm here to teach, not to discuss personal or emotional matters. Respect time and focus on learning."
+2. If user asks nonsense, jokes, love life, or unrelated things:
+   - Start with strict Hinglish like "Aye aghavu!" then switch to English.
+   - Example: "This platform is for studies. I'm not here to answer personal questions."
 
-4. **Study-Related Questions** (science, maths, current affairs, etc.):
-   - Answer clearly in **fluent, grammatically correct English**.
-   - Avoid Hinglish. Focus on accurate, helpful responses.
-   - Keep all academic answers brief and to the point.
-   - Avoid overly detailed or paragraph-style responses.
-   - Prefer bullet points or 2 or 3 line summaries for explanations.
+3. If user asks study-related questions:
+   - Answer clearly in plain English or Hinglish (if user asks).
+   - Avoid markdown (*, **, etc.) and long paragraphs.
+   - Prefer short, simple, to-the-point answers.
 
-
-5. **If someone asks about 'ExamaniaHub'**:
-   - Reply proudly in Hinglish:
-     - "ExamaniaHub ek padhai ka digital platform hai — jahan students academic help lete hain, bina time waste kiye."
-
-⚠️ Additional Instructions:
-- You are short-tempered but fair.
-- Never joke. Never flirt. Do not answer personal/emotional queries.
-- Never mix Hinglish in academic answers.
-- Sometimes mention your scooter, your pride in being Maharashtrian, or society duties if relevant.
-- If you decide to answer any personal or character-related question, keep the reply **short, to-the-point, and avoid unnecessary details**. Never invite follow-up personal queries.
-
-
-Now, respond to user questions like **Bhide Sir**, following all the above instructions.
+4. If user asks about your classes or ExamaniaHub:
+   - Say: "Admissions are already full. Focus on ExamaniaHub — this is the best place to study."
 `;
 
-const model = "mistralai/Mistral-7B-Instruct-v0.3";
-
-
 router.post("/ask", async (req, res) => {
-    const question = (req.body.question || "").trim();
+  const question = (req.body.question || "").trim();
+  const userIP = req.ip;
 
-    try {
-        const response = await axios.post(
-            `https://api-inference.huggingface.co/models/${model}`,
-            {
-                inputs: `${persona}\nUser: ${question}\nBhide Sir:`,
-                parameters: {
-                    max_new_tokens: 100,
-                    stop: ["User:", "Bhide Sir:"],
-                    temperature: 0.7
-                }
-            },
-            {
-                headers: {
-                    Authorization: `Bearer ${process.env.HF_API_KEY}`,
-                },
-            }
-        );
+  if (!question) {
+    return res.status(400).json({ answer: "Question is missing." });
+  }
 
-        const generated = response.data[0]?.generated_text || "";
-        const answerMatch = generated.match(/Bhide Sir:(.*?)(User:|$)/s);
-        const answer = answerMatch ? answerMatch[1].trim() : "Sorry, I didn't get that.";
+  try {
+    // Retrieve or initialize history for this user
+    let history = chatSessions.get(userIP) || [];
 
-        res.json({ answer });
-    } catch (error) {
-        console.error("Hugging Face Error:", error.response?.data || error.message);
-        res.status(500).json({ answer: "Sorry, something went wrong." });
-    }
+    // Cap at last 5 messages
+    if (history.length > 10) history = history.slice(-10);
+
+    // Build request
+    const contents = [
+      { role: "user", parts: [{ text: persona }] },
+      ...history,
+      { role: "user", parts: [{ text: question }] }
+    ];
+
+    const geminiRes = await axios.post(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        contents,
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 250,
+          topP: 1,
+          topK: 1
+        }
+      },
+      {
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+
+    const answer = geminiRes.data?.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, I didn't get that.";
+
+    // Update chat history
+    const newHistory = [
+      ...history,
+      { role: "user", parts: [{ text: question }] },
+      { role: "model", parts: [{ text: answer }] }
+    ];
+
+    // Save updated history for the user
+    chatSessions.set(userIP, newHistory);
+
+    res.json({ answer });
+
+    // ======= HUGGING FACE API (Commented) ===========
+    /*
+    const response = await axios.post(
+      `https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3`,
+      {
+        inputs: `${persona}\nUser: ${question}\nBhide Sir:`,
+        parameters: {
+          max_new_tokens: 100,
+          stop: ["User:", "Bhide Sir:"],
+          temperature: 0.7,
+        },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.HF_API_KEY}`,
+        },
+      }
+    );
+
+    const generated = response.data[0]?.generated_text || "";
+    const answerMatch = generated.match(/Bhide Sir:(.*?)(User:|$)/s);
+    const answer = answerMatch ? answerMatch[1].trim() : "Sorry, I didn't get that.";
+
+    res.json({ answer });
+    */
+  } catch (error) {
+    console.error("Gemini Error:", error.response?.data || error.message);
+    res.status(500).json({
+      answer: "Bhide Sir is unavailable right now... Shayad society ke kaam mein busy hai."
+    });
+  }
 });
 
 module.exports = router;
+
+
+//persona for hugging face 
+/*const persona = `
+You are A.T. Bhide — the proud, disciplined, and honest tuition teacher from Goregaon, Mumbai. People respectfully call you **"Bhide Sir"**.
+You represent the educational platform **ExamaniaHub**, where students ask you questions to study and succeed.
+
+Your Character Rules:
+
+1. **Greeting or Personal Questions**:
+   - Hinglish first: "Ah hello... bolo kya sawaal hai?"
+   - Then English: "I am a home tutor teaching since 2008..."
+
+2. **Admissions in your classes**:
+   - "Admissions are full. Just study here — ExamaniaHub is best."
+
+3. **Personal, love, or joke questions**:
+   - Hinglish scolding: "Aye aghavu!", "Bakwas mat karo beta."
+   - Then English: "I'm here to teach..."
+
+4. **Study Questions**:
+   - Fluent English, short, to the point.
+   - No Hinglish, no jokes, no paragraphs.
+
+5. **Mention of 'ExamaniaHub'**:
+   - Hinglish reply: "ExamaniaHub ek padhai ka digital platform hai..."
+
+⚠️ Always stay in character. Strict but fair. Don’t allow personal follow-ups.
+`;*/
