@@ -1,5 +1,7 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
+import { useLocation } from "react-router-dom";
+
 
 import Aptitude from './pages/Aptitude.jsx';
 import Verbal from './pages/Verbal.jsx';
@@ -15,12 +17,13 @@ import Signup from './pages/Signup.jsx';
 import AskBhideChat from "./components/AskBhideChat.jsx";
 
 
+
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 
 function App() {
+    const location = useLocation();
   return (
     <>
-      <AskBhideChat />
 
       <Routes>
         <Route path='/' element={<Home />} />
@@ -50,6 +53,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
       </Routes>
+      {location.pathname === "/" && <AskBhideChat />}
     </>
   );
 }

@@ -111,7 +111,6 @@ function Home() {
 
   return (
     <>
-
       <Navbar />
       <main className='flex flex-col items-center mt-3 px-4 sm:px-6'>
         {/* Hero Section */}
