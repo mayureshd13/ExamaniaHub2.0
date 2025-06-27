@@ -99,7 +99,7 @@ const AskBhideChat = () => {
           </div>
 
           {/* Input */}
-          <div className="border-t border-gray-200 bg-white p-3 flex flex-shrink-0">
+          <div className="border-t border-gray-200 bg-white p-3 flex flex-shrink-0 box-border">
             <input
               type="text"
               value={input}
