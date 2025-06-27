@@ -38,7 +38,7 @@ const AskBhideChat = () => {
     setCooldown(true);
 
     try {
-      const res = await axios.post(`${import.meta.env.VITE_API_BOT}`, {
+      const res = await axios.post(`${import.meta.env.VITE_BOT_API}`, {
         question: input,
       });
 
